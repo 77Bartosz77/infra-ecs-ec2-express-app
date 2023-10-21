@@ -4,7 +4,7 @@ resource "aws_launch_template" "ecs_lt" {
  instance_type = "t3.micro"
 
  key_name               = "KluczAWS"
- vpc_security_group_ids = [aws_security_group.express_app_sg]
+ vpc_security_group_ids = [aws_security_group.express_app_sg.id]
  iam_instance_profile {
    name = "ecsInstanceRole"
  }

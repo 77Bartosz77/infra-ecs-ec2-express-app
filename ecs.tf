@@ -6,7 +6,7 @@ resource "aws_ecs_capacity_provider" "ecs_capacity_provider" {
  name = "test1"
 
  auto_scaling_group_provider {
-   auto_scaling_group_arn = aws_autoscaling_group.ecs_asg.arn
+   auto_scaling_group_arn = aws_autoscaling_group.express_app_ecs_asg.arn
 
    managed_scaling {
      maximum_scaling_step_size = 1000
@@ -17,7 +17,7 @@ resource "aws_ecs_capacity_provider" "ecs_capacity_provider" {
  }
 }
 resource "aws_ecs_cluster_capacity_providers" "example" {
- cluster_name = aws_ecs_cluster.express_app_cluster
+ cluster_name = aws_ecs_cluster.express_app_cluster.name
 
  capacity_providers = [aws_ecs_capacity_provider.ecs_capacity_provider.name]
 
@@ -59,12 +59,12 @@ resource "aws_ecs_task_definition" "td" {
 resource "aws_ecs_service" "ecs_service" {
  name            = "express_app"
  cluster         = aws_ecs_cluster.express_app_cluster.id
- task_definition = aws_ecs_task_definition.ecs_task_definition.arn
+ task_definition = aws_ecs_task_definition.td.arn
  desired_count   = 2
 
  network_configuration {
-   subnets         = [aws_subnet.sn1, aws_subnet.sn2, aws_subnet.sn3]
-   security_groups = [aws_security_group.express_app_sg]
+   subnets         = [aws_subnet.sn1.id, aws_subnet.sn2.id, aws_subnet.sn3.id]
+   security_groups = [aws_security_group.express_app_sg.id]
  }
 
  force_new_deployment = true
@@ -87,5 +87,5 @@ resource "aws_ecs_service" "ecs_service" {
    container_port   = 80
  }
 
- depends_on = [aws_autoscaling_group.ecs_asg]
+ depends_on = [aws_autoscaling_group.express_app_ecs_asg]
 }
