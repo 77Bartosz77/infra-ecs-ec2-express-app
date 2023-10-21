@@ -1,26 +1,44 @@
-resource "aws_ecs_cluster" "ecs" {
+resource "aws_ecs_cluster" "express_app_cluster" {
   name = "express_app_cluster"
 }
 
-resource "aws_ecs_service" "service" {
-  name = "express_app_service"
-  cluster                = aws_ecs_cluster.ecs.arn
-  launch_type            = "FARGATE"
-  enable_execute_command = true
+resource "aws_ecs_capacity_provider" "ecs_capacity_provider" {
+ name = "test1"
 
-  deployment_maximum_percent         = 200
-  deployment_minimum_healthy_percent = 100
-  desired_count                      = 1
-  task_definition                    = aws_ecs_task_definition.td.arn
+ auto_scaling_group_provider {
+   auto_scaling_group_arn = aws_autoscaling_group.ecs_asg.arn
 
-  network_configuration {
-    assign_public_ip = true
-    security_groups  = [aws_security_group.express_app_sg.id]
-    subnets          = [aws_subnet.sn1.id, aws_subnet.sn2.id, aws_subnet.sn3.id]
-  }
+   managed_scaling {
+     maximum_scaling_step_size = 1000
+     minimum_scaling_step_size = 1
+     status                    = "ENABLED"
+     target_capacity           = 3
+   }
+ }
+}
+resource "aws_ecs_cluster_capacity_providers" "example" {
+ cluster_name = aws_ecs_cluster.express_app_cluster
+
+ capacity_providers = [aws_ecs_capacity_provider.ecs_capacity_provider.name]
+
+ default_capacity_provider_strategy {
+   base              = 1
+   weight            = 100
+   capacity_provider = aws_ecs_capacity_provider.ecs_capacity_provider.name
+ }
 }
 
 resource "aws_ecs_task_definition" "td" {
+ family             = "express_app"
+ network_mode       = "awsvpc"
+ execution_role_arn = "arn:aws:iam::${var.account_id}:role/ecsTaskExecutionRole"
+ task_role_arn      = "arn:aws:iam::${var.account_id}:role/ecsTaskExecutionRole"
+ cpu                = 256
+ runtime_platform {
+   operating_system_family = "LINUX"
+   cpu_architecture        = "X86_64"
+ }
+
   container_definitions = jsonencode([
     {
       name         = "express_app"
@@ -36,12 +54,38 @@ resource "aws_ecs_task_definition" "td" {
       ]
     }
   ])
-  family                   = "express_app"
-  requires_compatibilities = ["FARGATE"]
+}
 
-  cpu                = "256"
-  memory             = "512"
-  network_mode       = "awsvpc"
-  task_role_arn      = "arn:aws:iam::${var.account_id}:role/ecsTaskExecutionRole"
-  execution_role_arn = "arn:aws:iam::${var.account_id}:role/ecsTaskExecutionRole"
+resource "aws_ecs_service" "ecs_service" {
+ name            = "express_app"
+ cluster         = aws_ecs_cluster.express_app_cluster.id
+ task_definition = aws_ecs_task_definition.ecs_task_definition.arn
+ desired_count   = 2
+
+ network_configuration {
+   subnets         = [aws_subnet.sn1, aws_subnet.sn2, aws_subnet.sn3]
+   security_groups = [aws_security_group.express_app_sg]
+ }
+
+ force_new_deployment = true
+ placement_constraints {
+   type = "distinctInstance"
+ }
+
+ triggers = {
+   redeployment = timestamp()
+ }
+
+ capacity_provider_strategy {
+   capacity_provider = aws_ecs_capacity_provider.ecs_capacity_provider.name
+   weight            = 100
+ }
+
+ load_balancer {
+   target_group_arn = aws_lb_target_group.ecs_tg.arn
+   container_name   = "express_app"
+   container_port   = 80
+ }
+
+ depends_on = [aws_autoscaling_group.ecs_asg]
 }
