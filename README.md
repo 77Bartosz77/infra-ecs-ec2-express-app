@@ -1,2 +1,2 @@
 # infra-express-app
-terraform aws provider for express app
+terraform aws-ecs-fargate for express app
