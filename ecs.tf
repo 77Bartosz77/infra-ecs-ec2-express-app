@@ -57,7 +57,7 @@ resource "aws_ecs_task_definition" "td" {
 }
 
 resource "aws_ecs_service" "ecs_service" {
- name            = "express_app"
+ name            = "express_app_service"
  cluster         = aws_ecs_cluster.express_app_cluster.id
  task_definition = aws_ecs_task_definition.td.arn
  desired_count   = 2
